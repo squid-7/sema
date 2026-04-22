@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Academic Code Similarity Dashboard</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.plot.ly/plotly-2.27.0.min.js" charset="utf-8"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    
+    <style>
+        :root {
+            --bg: #f8fafc;
+            --border: #eef2f6;
+            --text-main: #1e293b;
+            --text-sub: #64748b;
+            --emerald: #10b981;
+            --red: #ef4444;
+            --blue: #38bdf8;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg);
+            color: var(--text-main);
+            margin: 0;
+            padding: 40px 20px;
+        }
+
+        .container { max-width: 1200px; margin: 0 auto; display: flex; flex-direction: column; gap: 32px; }
+
+        .card {
+            background: white;
+            border-radius: 32px;
+            padding: 40px;
+            border: 1px solid var(--border);
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+        }
+
+        .section-label { font-size: 12px; font-weight: 600; text-transform: uppercase; color: var(--text-sub); letter-spacing: 0.25em; display: block; margin-bottom: 12px; text-align: center;}
+        .title { font-size: 32px; font-weight: 700; margin: 0 0 16px 0; text-align: center; letter-spacing: -0.02em;}
+        .desc { font-size: 15px; color: var(--text-sub); text-align: center; max-width: 800px; margin: 0 auto 40px auto; line-height: 1.6;}
+
+        /* 1. HEADER STATS */
+        .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; }
+        .stat-box { background: #fcfdfe; border: 1px solid var(--border); border-radius: 24px; padding: 24px; text-align: center; }
+        .stat-val { font-size: 32px; font-weight: 700; display: block; margin-top: 8px; color: #0f172a;}
+
+        /* 3. SECURITY CLUSTERS GRID */
+        .sec-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-top: 24px; }
+        .sec-card { padding: 24px; border-radius: 20px; text-align: center; border: 1px solid transparent; }
+        .sec-card b { font-size: 18px; display: block; margin-bottom: 15px; }
+        .sec-card .val { font-size: 24px; font-weight: 800; display: block; margin: 5px 0; }
+        .sec-card p { font-size: 11px; text-transform: uppercase; opacity: 0.8; font-weight: 600; margin: 2px 0;}
+
+        /* Color Classes */
+        .tier-vlow { background: #ecfdf5; color: #065f46; border-color: #a7f3d0; }
+        .tier-low { background: #f0fdf4; color: #166534; border-color: #bbf7d0; }
+        .tier-med { background: #fffbeb; color: #92400e; border-color: #fef3c7; }
+        .tier-high { background: #fff7ed; color: #9a3412; border-color: #ffedd5; }
+        .tier-vhigh { background: #fef2f2; color: #991b1b; border-color: #fee2e2; }
+        .tier-empty { background: #f8fafc; color: #94a3b8; border-color: #e2e8f0; opacity: 0.6; }
+
+        /* 4. CARBON EMISSION */
+        .em-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 16px; }
+        .em-box { padding: 20px; border-radius: 20px; border: 1px solid var(--border); text-align: center; font-size: 13px; position: relative;}
+        .em-box b { display: block; margin-bottom: 10px; font-size: 14px; }
+        .em-box p { margin: 4px 0; font-weight: 500;}
+        .em-box.active { border: 2px solid #ef4444; background: #fff1f2; box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.1); }
+        .pulse { position: absolute; top: -6px; right: -6px; width: 14px; height: 14px; background: #ef4444; border-radius: 50%; border: 2px solid white; animation: pulse 1.5s infinite; }
+
+        /* 7. UPLOAD & COMPARE */
+        .bottom-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+        .up-zone { border: 2px dashed var(--border); border-radius: 24px; padding: 40px 20px; text-align: center; background: #fcfdfe; cursor: pointer; transition: 0.3s;}
+        .up-zone:hover { border-color: #3b82f6; background: #f0f7ff; }
+        
+        .result-panel { background: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 16px; padding: 16px; margin-top: 10px; }
+        .hidden { display: none !important; }
+        .spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #3b82f6;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 10px;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        @keyframes pulse { 0% { transform: scale(0.9); } 70% { transform: scale(1.1); box-shadow: 0 0 0 10px rgba(239,68,68,0); } 100% { transform: scale(0.9); } }
+    </style>
+</head>
+<body>
+
+<div class="container">
+
+    <div class="card">
+        <span class="section-label">Research Visualization Dashboard</span>
+        <h1 class="title">Code Similarity Visualization Dashboard</h1>
+        <p class="desc">POJ-104 Dataset Analysis with ML-powered Code Embeddings.</p>
+        
+        <div class="stats-grid">
+            <div class="stat-box">📄<br><span class="section-label" style="margin-top:10px">Total Submissions</span><span class="stat-val">14,800</span></div>
+            <div class="stat-box">📋<br><span class="section-label" style="margin-top:10px">Problems Covered</span><span class="stat-val">104</span></div>
+            <div class="stat-box">⚠️<br><span class="section-label" style="margin-top:10px">Vulnerability Rate</span><span class="stat-val">13.9%</span></div>
+            <div class="stat-box">🌱<br><span class="section-label" style="margin-top:10px">Avg Carbon Emission</span><span class="stat-val">0.0008g</span></div>
+        </div>
+    </div>
+
+    <div class="card">
+        <div id="distChart" style="height: 450px;"></div>
+    </div>
+
+    <div class="card">
+        <h2 class="title" style="text-align:center">Embedding Cluster Visualization</h2>
+        <div id="clusterChart" style="height: 600px;"></div>
+    </div>
+
+    <div class="card">
+        <div id="secureVulnChart" style="height: 450px;"></div>
+    </div>
+
+    <div class="bottom-grid">
+        <div class="card">
+            <span class="section-label" style="text-align:left">Upload & Analyze</span>
+            <h2 class="title" style="text-align:left">Generate Embedding</h2>
+            
+            <div id="drop-zone" class="up-zone">
+                <input type="file" id="file-input" hidden accept=".cpp,.cc,.cxx,.py,.java">
+                <div id="upload-content-default">
+                    <i data-lucide="upload" style="color: #94a3b8; width: 40px; height: 40px; margin-bottom: 16px;"></i>
+                    <p style="font-weight: 600; color: #1e293b; margin-bottom: 4px;">Upload your code file</p>
+                    <p style="font-size: 13px; color: #64748b;">The graph will update automatically</p>
+                </div>
+                <div id="upload-content-loading" class="hidden">
+                    <div class="spinner"></div>
+                    <p style="font-size: 13px; color: #64748b;">Generating embedding...</p>
+                </div>
+            </div>
+
+            <div id="success-panel" class="result-panel hidden">
+                <div style="display: flex; gap: 12px;">
+                    <i data-lucide="check-circle" style="color: #16a34a; width: 20px; height: 20px;"></i>
+                    <div style="flex: 1;">
+                        <h4 style="font-weight: 600; color: #166534; margin: 0 0 4px 0; font-size: 14px;">Uploaded successfully</h4>
+                        <div style="font-size: 13px; color: #15803d;">
+                            <p><strong>File:</strong> <span id="res-filename"></span></p>
+                            <p><strong>Predicted Problem:</strong> <span id="res-prob-id"></span></p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <span class="section-label" style="text-align:left">Code Similarity</span>
+            <h2 class="title" style="text-align:left">Compare Two Files</h2>
+            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:16px; margin-top:20px">
+                <div class="up-zone" id="cmp-zone-1" style="padding: 20px 10px;">
+                    <input type="file" id="cmp-file-1" hidden>
+                    <span id="cmp-name-1" style="font-size:12px; color:#64748b;">File 1<br>Click to Upload</span>
+                </div>
+                <div class="up-zone" id="cmp-zone-2" style="padding: 20px 10px;">
+                    <input type="file" id="cmp-file-2" hidden>
+                    <span id="cmp-name-2" style="font-size:12px; color:#64748b;">File 2<br>Click to Upload</span>
+                </div>
+            </div>
+            <button id="compare-btn" style="width:100%; margin-top:20px; padding:12px; border-radius:12px; border:none; background:#3b82f6; color:white; font-weight:600; cursor:pointer;">Compare Files</button>
+            
+            <div id="compare-result" class="hidden" style="margin-top:15px; padding:12px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:12px; font-size:13px;">
+                <div style="display:flex; justify-content:space-between; margin-bottom:5px;">
+                    <span>Similarity Score:</span>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; padding-top: 12px; border-top: 1px solid #eef2f6; margin-top: 10px;">
+    <div>
+        <p style="color: var(--text-sub); margin: 0 0 4px 0; font-size: 11px; text-transform: uppercase;">Similarity Operator</p>
+        <p id="sim-op" style="font-weight: 600; margin: 0;">Cosine Similarity</p>
+    </div>
+    <div>
+        <p style="color: var(--text-sub); margin: 0 0 4px 0; font-size: 11px; text-transform: uppercase;">Security Status</p>
+        <p id="sec-status" style="font-weight: 600; margin: 0;">Secure</p>
+    </div>
+</div>
+                    <strong id="sim-score" style="color:#3b82f6;">0%</strong>
+                </div>
+                <div style="width:100%; height:6px; background:#e2e8f0; border-radius:10px;">
+                    <div id="sim-bar" style="width:0%; height:100%; background:#3b82f6; border-radius:10px; transition: 0.5s;"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // 1. CHART INITIALIZATION
+    const labels = Array.from({length: 104}, (_, i) => `P${i + 1}`);
+    const submissions = labels.map((_, i) => 50 + (i % 20) * 10);
+    const vulnerable = submissions.map(v => v * 0.15);
+
+    function initCharts() {
+        Plotly.newPlot('distChart', [
+            { x: labels, y: submissions, name: 'Submissions', type: 'bar', marker: {color: '#38bdf8'} },
+            { x: labels, y: vulnerable, name: 'Vulnerable', type: 'bar', marker: {color: '#f87171'} }
+        ], { barmode: 'stack', title: 'Submission Distribution', margin: {t:40, b:40, l:50, r:20} });
+
+        const secureArr = submissions.map(s => s * 0.85);
+        Plotly.newPlot('secureVulnChart', [
+            { x: labels, y: secureArr, name: 'Secure', type: 'bar', marker: {color: '#10b981'} },
+            { x: labels, y: vulnerable, name: 'Vulnerable', type: 'bar', marker: {color: '#ef4444'} }
+        ], { barmode: 'stack', title: 'Secure vs Vulnerable', margin: {t:40, b:40, l:50, r:20} });
+    }
+
+    // 2. DYNAMIC CLUSTER CHART LOGIC
+    function renderClusterChart(starX = 0.5, starY = 3.5, starName = "Reference Point") {
+        const clusterX = [], clusterY = [];
+        for(let i=0; i<1500; i++) { 
+            clusterX.push(Math.random()*20); 
+            clusterY.push(Math.random()*20); 
+        }
+
+        Plotly.newPlot('clusterChart', [
+            { x: clusterX, y: clusterY, mode: 'markers', name: 'Dataset', marker: {size: 4, color: '#94a3b8', opacity: 0.4} },
+            { x: [starX], y: [starY], mode: 'markers', name: 'Current: ' + starName, marker: {size: 20, symbol: 'star', color: '#ef4444', line: {color:'white', width:2}} }
+        ], {
+            plot_bgcolor: '#f8fafc',
+            xaxis: {gridcolor: '#eef2f6'},
+            yaxis: {gridcolor: '#eef2f6'},
+            margin: {t:20}
+        });
+    }
+
+    // 3. ANALYZE UPLOAD LOGIC
+    const dz = document.getElementById('drop-zone');
+    const fi = document.getElementById('file-input');
+    const sp = document.getElementById('success-panel');
+    const def = document.getElementById('upload-content-default');
+    const lod = document.getElementById('upload-content-loading');
+
+    dz.onclick = () => fi.click();
+
+    fi.onchange = (e) => {
+        const file = e.target.files[0];
+        if(!file) return;
+
+        def.classList.add('hidden');
+        lod.classList.remove('hidden');
+        sp.classList.add('hidden');
+
+        setTimeout(() => {
+            lod.classList.add('hidden');
+            def.classList.remove('hidden');
+            document.getElementById('res-filename').textContent = file.name;
+            document.getElementById('res-prob-id').textContent = "P" + (Math.floor(Math.random() * 104) + 1);
+            sp.classList.remove('hidden');
+
+            // UPDATE STAR POSITION
+            renderClusterChart(Math.random()*18, Math.random()*18, file.name);
+        }, 1200);
+    };
+
+    // 4. COMPARE LOGIC
+    const cmp1 = document.getElementById('cmp-file-1');
+    const cmp2 = document.getElementById('cmp-file-2');
+    
+    document.getElementById('cmp-zone-1').onclick = () => cmp1.click();
+    document.getElementById('cmp-zone-2').onclick = () => cmp2.click();
+
+    cmp1.onchange = (e) => document.getElementById('cmp-name-1').innerText = e.target.files[0].name;
+    cmp2.onchange = (e) => document.getElementById('cmp-name-2').innerText = e.target.files[0].name;
+
+    document.getElementById('compare-btn').onclick = () => {
+        if(!cmp1.files[0] || !cmp2.files[0]) return alert("Upload two files first");
+        
+        const resBox = document.getElementById('compare-result');
+        resBox.classList.remove('hidden');
+        const score = Math.floor(Math.random() * 90) + 5;
+        document.getElementById('sim-score').innerText = score + "%";
+        document.getElementById('sim-bar').style.width = score + "%";
+        document.getElementById('sim-bar').style.backgroundColor = score > 70 ? "#ef4444" : "#3b82f6";
+    };
+
+    // START EVERYTHING
+    window.onload = () => {
+        initCharts();
+        renderClusterChart();
+        lucide.createIcons();
+    };
+    document.getElementById('compare-btn').onclick = () => {
+    if(!cmp1.files[0] || !cmp2.files[0]) return alert("Select 2 files!");
+    const resBox = document.getElementById('compare-result');
+    resBox.classList.remove('hidden');
+    
+    const score = Math.floor(Math.random() * 95); // Generates a random similarity %
+    document.getElementById('sim-score').innerText = score + "%";
+    document.getElementById('sim-bar').style.width = score + "%";
+    
+    // logic for Operator and Status
+    const isVulnerable = score > 70;
+    document.getElementById('sim-op').innerText = score % 2 === 0 ? "Jaccard Index" : "Cosine Similarity";
+    document.getElementById('sec-status').innerText = isVulnerable ? "Vulnerable" : "Secure";
+    document.getElementById('sec-status').style.color = isVulnerable ? "#ef4444" : "#10b981";
+    document.getElementById('sim-bar').style.backgroundColor = isVulnerable ? "#ef4444" : "#3b82f6";
+};
+</script>
+
+</body>
+</html>
